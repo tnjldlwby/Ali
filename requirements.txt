@@ -1,9 +1,2 @@
-os
-sys
-subprocess
-threading
-time
-requests
-zlib
-tkinter
-tkinter.ttk
+flet>=0.22.0
+requests>=2.31
