@@ -1,0 +1,9 @@
+os
+sys
+subprocess
+threading
+time
+requests
+zlib
+tkinter
+tkinter.ttk
